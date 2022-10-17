@@ -1,5 +1,4 @@
 use polars ::prelude::*;
-use std::collections::HashMap;
 
 pub trait Summary
 {
@@ -54,64 +53,73 @@ impl Summary for DataFrame
       df.clone().lazy().select([ all().to_float().lt( 0 ) ]).collect().unwrap().sum()
     }
 
-    // let percentiles = percentiles.unwrap_or(&[0.25, 0.5, 0.75]);
+    fn perc_negative( df : &DataFrame ) -> DataFrame
+    {
+      num_negative( df ).iter().zip( count( df ).iter() )
+      .map( |( negative, count )|
+      {
+        negative.cast( &DataType::Float64 ).unwrap() / count.cast( &DataType::Float64 ).unwrap()
+      }).collect()
+    }
 
-    let data = HashMap::from(
+    fn n_unique( df : &DataFrame ) -> DataFrame
+    {
+      df.unique( None, UniqueKeepStrategy::First ).unwrap().sum()
+    }
+
+    fn perc_distinct( df : &DataFrame ) -> DataFrame
+    {
+      n_unique( df ).iter().zip( count( df ).iter() )
+      .map( |( unique, count )|
+      {
+        unique.cast( &DataType::Float64 ).unwrap() / count.cast( &DataType::Float64 ).unwrap()
+      }).collect()
+    }
+
+    fn quantile( df : &DataFrame, p : f64 ) -> DataFrame
+    {
+      df
+      .quantile( p, QuantileInterpolOptions::Linear )
+      .expect( "quantile failed" )
+    }
+
+    let data = 
     [
       ( "perc_missing", perc_missing( self ) ),
       ( "perc_zeros", perc_zeros( self ) ),
       ( "num_negative", num_negative( self ) ),
       ( "num_zeros", num_zeros( self ) ),
+      ( "perc_negative", perc_negative( self ) ),
+      ( "perc_distinct", perc_distinct( self ) ),
+      // ( "num_low_3x_IQR_outliers", tmp( self ) ),
+      // ( "num_high_3x_IQR_outliers", tmp( self ) ),
+      // ( "num_low_10x_IQR_outliers", tmp( self ) ),
+      // ( "num_high_10x_IQR_outliers", tmp( self ) ),
       ( "count", count( self ) ),
+      ( "n_unique", n_unique( self ) ),
+    //   ( "decimal_col", tmp( self ) ),
+    //   ( "perc_most_freq", tmp( self ) ),
+    //   ( "val_most_freq", tmp( self ) ),
       ( "min", self.min() ),
+      ( "p05", quantile( self, 0.05 ) ),
+      ( "p25", quantile( self, 0.25 ) ),
       ( "median", self.median() ),
+      ( "p75", quantile( self, 0.75 ) ),
+      ( "p95", quantile( self, 0.95 ) ),
       ( "mean", self.mean() ),
       ( "max", self.max() ),
-    ]);
+    //   ( "dtype", tmp( self ) ),
+    //   ( "skew", tmp( self ) ),
+    ];
 
-    let headers = data.keys().collect::< Vec< _ > >();
-
-    // let __headers = vec!
-    // [
-    //   "perc_missing",
-    //   "perc_zeros",
-    //   "num_negative",
-    //   "num_zeros",
-    //   "perc_negative",
-    //   "perc_distinct",
-    //   "num_low_3x_IQR_outliers",
-    //   "num_high_3x_IQR_outliers",
-    //   "num_low_10x_IQR_outliers",
-    //   "num_high_10x_IQR_outliers",
-    //   "count",
-    //   "n_unique",
-    //   "decimal_col",
-    //   "perc_most_freq",
-    //   "val_most_freq",
-    //   "min",
-    //   "p05",
-    //   "p25",
-    //   "median",
-    //   "mean",
-    //   "p75",
-    //   "p95",
-    //   "max",
-    //   "dtype",
-    //   "skew",
-    // ];
-
-    let tmp = data.values().into_iter()
-    .map( | value | describe_cast( value ).lazy() )
-    .collect::< Vec< _ > >();
-
-    // for p in percentiles {
-    //     tmp.push(describe_cast(
-    //         &self
-    //             .quantile(*p, QuantileInterpolOptions::Linear)
-    //             .expect("quantile failed"),
-    //     ));
-    //     headers.push(format!("{}%", *p * 100.0));
-    // }
+    let ( headers, tmp ) = data.iter()
+    .fold( ( vec![], vec![] ),
+    | ( mut headers, mut frames ), ( header, frame ) |
+    {
+      headers.push( header );
+      frames.push( describe_cast( frame ).lazy() );
+      ( headers, frames )
+    });
 
     let col_names = self.get_column_names();
     let summary = concat( &tmp, true, true ).unwrap();
