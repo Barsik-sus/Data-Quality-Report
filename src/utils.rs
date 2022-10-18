@@ -2,12 +2,12 @@ use polars ::prelude::*;
 
 pub trait Summary
 {
-  fn summarize( &self ) -> Self;
+  fn summarize( &self, missing_by : String ) -> Self;
 }
 
 impl Summary for DataFrame
 {
-  fn summarize( &self ) -> Self
+  fn summarize( &self, missing_by : String ) -> Self
   {
     fn describe_cast( df: &DataFrame ) -> DataFrame
     {
@@ -64,7 +64,22 @@ impl Summary for DataFrame
 
     fn n_unique( df : &DataFrame ) -> DataFrame
     {
-      df.unique( None, UniqueKeepStrategy::First ).unwrap().sum()
+      df.clone().lazy().select([ all().n_unique() ]).collect().unwrap()
+    }
+
+    fn mode_value( df : &DataFrame ) -> DataFrame
+    {
+      df.clone().lazy().select([ all().mode() ]).collect().unwrap()
+    }
+
+    fn perc_mode_value( df : &DataFrame ) -> DataFrame
+    {
+      df.clone().lazy().select([ all().filter( all().eq( all().mode() ) ).sum() ]).collect().unwrap()
+      .iter().zip( count( df ).iter() )
+      .map( |( unique, count )|
+      {
+        unique.cast( &DataType::Float64 ).unwrap() / count.cast( &DataType::Float64 ).unwrap()
+      }).collect()
     }
 
     fn perc_distinct( df : &DataFrame ) -> DataFrame
@@ -98,8 +113,8 @@ impl Summary for DataFrame
       ( "count", count( self ) ),
       ( "n_unique", n_unique( self ) ),
     //   ( "decimal_col", tmp( self ) ),
-    //   ( "perc_most_freq", tmp( self ) ),
-    //   ( "val_most_freq", tmp( self ) ),
+      // ( "perc_most_freq", perc_mode_value( self ) ), // ! filter * not allowed
+      ( "val_most_freq", mode_value( self ) ),
       ( "min", self.min() ),
       ( "p05", quantile( self, 0.05 ) ),
       ( "p25", quantile( self, 0.25 ) ),
@@ -123,6 +138,34 @@ impl Summary for DataFrame
 
     let col_names = self.get_column_names();
     let summary = concat( &tmp, true, true ).unwrap();
+    let missing_ds = if col_names.contains( &missing_by.as_str() )
+    {
+      summary.clone().groupby([ col( missing_by.as_str() ) ])
+      .agg(
+      [
+        col( &missing_by ).min().suffix( "_min" ),
+        col( &missing_by ).max().suffix( "_max" ),
+        col( &missing_by ).sum().suffix( "_sum" ),
+      ])
+    }
+    else
+    {
+      LazyFrame::default()
+    }.collect().unwrap();
+    log::info!( "==missing data set==\n{missing_ds:#?}" );
+    // if self.missing_by is not None and self.missing_by in self.df.columns:
+    //         missing_ds = self.df.groupby(self.missing_by).count() == 0
+    //     else:
+    //         missing_ds = pd.DataFrame()
+    //     missing_df_summary = pd.DataFrame(
+    //         {
+    //             "min_missing_partition": missing_ds.aggregate(lambda x: x.index[x].min()),
+    //             "max_missing_partition": missing_ds.aggregate(lambda x: x.index[x].max()),
+    //             "num_missing_partitions": missing_ds.sum(),
+    //         }
+    //     )
+
+    //     self._summary_df = pd.concat([summary_df_no_missing, missing_df_summary], axis=1)
 
     let mut summary = summary
     .collect().unwrap()

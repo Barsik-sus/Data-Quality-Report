@@ -29,9 +29,72 @@ lazy_static::lazy_static!
     DataQualityRule
     {
       level : 0,
-      condition : col( "perc_missing" ).gt( 0 ),
+      condition : col( "perc_missing" ).gt( 0.0 ),
       fields : vec![ "perc_missing".to_owned() ],
       msg : None
+    },
+    DataQualityRule
+    {
+      level : 0,
+      condition : col( "dtype" ).eq( "object" ),
+      fields : vec![ "dtype".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 0,
+      condition : col( "n_unique" ).eq( 0 ),
+      fields : vec![ "n_unique".to_owned(), "mean".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 0,
+      condition : col( "num_missing_partitions" ).gt( 0.0 ),
+      fields : vec![ "num_missing_partitions".to_owned(), "min_missing_partition".to_owned(), "max_missing_partition".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 1,
+      condition : col( "perc_negative" ).gt( 0.0 ).and( col( "perc_negative" ).lt( 0.05 ) ),
+      fields : vec![ "perc_negative".to_owned(), "num_negative".to_owned(), "min".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 1,
+      condition : col( "n_unique" ).gt( 30 ).or( col( "decimal_col" ) ).and( col( "perc_most_freq" ).gt( 0.4 ) ),
+      fields : vec![ "perc_most_freq".to_owned(), "val_most_freq".to_owned() ],
+      msg : Some( "High percentage of a single value".to_owned() )
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "perc_zeros" ).gt( 0.5 ),
+      fields : vec![ "perc_zeros".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "num_low_3x_IQR_outliers" ).gt( 0.0 ),
+      fields : vec![ "num_low_3x_IQR_outliers".to_owned(), "num_low_10x_IQR_outliers".to_owned(), "min".to_owned(), "p05".to_owned(), "p25".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "num_high_3x_IQR_outliers " ).gt( 0.0 ),
+      fields : vec![ "num_high_3x_IQR_outliers".to_owned(), "num_high_10x_IQR_outliers".to_owned(), "p75".to_owned(), "p95".to_owned(), "max".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "skew" ).abs().gt( 0.5 ),
+      fields : vec![ "skew".to_owned() ],
+      msg : Some( "Data is skewed - maybe try a transformation (log?)".to_owned() )
     },
   ];
 
@@ -41,6 +104,76 @@ lazy_static::lazy_static!
     {
       level : 0,
       condition : col( "perc_missing" ).gt( 0.95 ),
+      fields : vec![ "perc_missing".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 0,
+      condition : col( "n_unique" ).eq( 1 ),
+      fields : vec![ "n_unique".to_owned(), "mean".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 1,
+      condition : col( "perc_distinct" ).gt( 0.99 ).and( col( "perc_distinct" ).lt( 1.0 ) ),
+      fields : vec![ "perc_distinct".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 1,
+      condition : col( "perc_negative" ).gt( 0.0 ).and( col( "perc_negative" ).lt( 0.05 ) ),
+      fields : vec![ "perc_negative".to_owned(), "num_negative".to_owned(), "min".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "perc_zeros" ).gt( 0.5 ),
+      fields : vec![ "perc_zeros".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "dtype" ).eq( "object" ),
+      fields : vec![ "dtype".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "perc_missing" ).gt( 0.5 ).and( col( "perc_missing" ).lt_eq( 0.95 ) ),
+      fields : vec![ "perc_missing".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 2,
+      condition : col( "n_unique" ).gt( 30 ).or( col( "decimal_col" ) ).and( col( "perc_most_freq" ).gt( 0.4 ) ),
+      fields : vec![ "perc_most_freq".to_owned(), "val_most_freq".to_owned() ],
+      msg : Some( "High percentage of a single value".to_owned() )
+    },
+    DataQualityRule
+    {
+      level : 3,
+      condition : col( "num_low_10x_IQR_outliers" ).gt( 0.0 ),
+      fields : vec![ "min".to_owned(), "p05".to_owned(), "p25".to_owned(), "num_low_10x_IQR_outliers".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 3,
+      condition : col( "num_high_10x_IQR_outliers" ).gt( 0.0 ),
+      fields : vec![ "num_high_10x_IQR_outliers".to_owned(), "p75".to_owned(), "p95".to_owned(), "max".to_owned() ],
+      msg : None
+    },
+    DataQualityRule
+    {
+      level : 3,
+      condition : col( "perc_missing" ).gt( 0.0 ).and( col( "perc_missing" ).lt_eq( 0.5 ) ),
       fields : vec![ "perc_missing".to_owned() ],
       msg : None
     },
@@ -57,32 +190,58 @@ pub struct DataQualityReport
   summary_df : DataFrame,
 }
 
+#[ derive( Debug, Default ) ]
+pub struct DataQualityReportBuilder
+{
+  df : DataFrame,
+  missing_by : Option< String >,
+  rules : Option< Vec< DataQualityRule > >,
+  max_rows : Option< usize >,
+}
+
+impl DataQualityReportBuilder
+{
+  pub fn new( df : DataFrame ) -> Self { Self { df, ..Default::default() } }
+  pub fn missing_by< S >( mut self, missing_by : S ) -> Self
+  where
+    S : Into< String >
+  { self.missing_by = Some( missing_by.into() ); self }
+  pub fn rules( mut self, rules : Vec< DataQualityRule > ) -> Self { self.rules = Some( rules ); self }
+  pub fn max_rows( mut self, max_rows : usize ) -> Self { self.max_rows = Some( max_rows ); self }
+  pub fn setup( mut self ) -> DataQualityReport
+  {
+    let num_rows = self.df.height();
+    if !self.max_rows.is_none() && num_rows > self.max_rows.unwrap()
+    {
+      println!( "DataFrame has {num_rows} raws, sampling {max_rows} to reduce latency. Specify `max_rows=None` to disable.", max_rows = self.max_rows.unwrap() );
+      self.df = self.df.sample_n( self.max_rows.unwrap(), false, false, None ).unwrap()
+    }
+
+    let missing_by = self.missing_by.unwrap_or( "active_date".to_owned() );
+
+    log::info!( "==Rules==\n{:?}", self.rules );
+    let summary_df = self.df.summarize( missing_by.to_owned() );
+    log::info!( "==summarized df==\n{:#?}", &summary_df );
+
+    let file = std::fs::File::create( "./summarized_data.csv" ).unwrap();
+    let mut to_write = summary_df.clone();
+    CsvWriter::new( file ).finish( &mut to_write ).unwrap();
+
+    DataQualityReport
+    {
+      df : self.df,
+      missing_by,
+      rules : self.rules.unwrap_or( FEATURE_RULES.clone() ),
+      summary_df,
+    }
+  }
+}
+
 impl DataQualityReport
 {
-  pub fn new
-  (
-    mut df : DataFrame,
-    missing_by : String,
-    rules : Option< Vec< DataQualityRule > >,
-    max_rows : Option< usize >,
-  ) -> Self
+  pub fn new( df : DataFrame ) -> DataQualityReportBuilder
   {
-    let num_rows = df.height();
-    if !max_rows.is_none() && num_rows > max_rows.unwrap()
-    {
-      println!( "DataFrame has {num_rows} raws, sampling {max_rows} to reduce latency. Specify `max_rows=None` to disable.", max_rows = max_rows.unwrap() );
-      df = df.sample_n( max_rows.unwrap(), false, false, None ).unwrap()
-    }
-    let rules = if rules.is_none()
-    { FEATURE_RULES.clone() }
-    else
-    { rules.unwrap() };
-
-    log::info!( "{:?}", rules );
-    let summary_df = df.summarize();
-    log::info!( "{:#?}", &summary_df );
-
-    Self{ df, missing_by, rules, summary_df }
+    DataQualityReportBuilder::new( df )
   }
 
   pub fn warnings( &self, min_dq_level : f32 ) -> Vec< DataQualityWarning >
@@ -105,11 +264,20 @@ impl DataQualityReport
 
   fn warns_from_rule( &self, rule : &DataQualityRule ) -> Vec< DataQualityWarning >
   {
-    let rows = self.summary_df.clone().lazy()
+    let rows = match self.summary_df.clone().lazy()
     .filter( rule.condition.to_owned() )
-    .collect().unwrap();
+    .collect()
+    {
+      Ok( rows ) => rows,
+      _ =>
+      {
+        log::error!( "Rule : {:?} can not be used.\nMay be some columns needed for this rule is not expected", rule );
+        return vec![]
+      }
+    };
+    // could be optimized
 
-    log::info!( "all :\n{:#?}", &rows );
+    log::info!( "rule : {rule:?}\ndata :\n{rows:#?}" );
 
     rows
     .select_at_idx( 0 ).unwrap().utf8().unwrap().into_iter()
