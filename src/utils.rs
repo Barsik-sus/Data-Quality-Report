@@ -119,7 +119,7 @@ impl Summary for DataFrame
       ( "n_unique", n_unique( self ) ),
     //   ( "decimal_col", tmp( self ) ),
       // ( "perc_most_freq", perc_mode_value( self ) ), // ! filter * not allowed
-      // ( "val_most_freq", mode_value( self ) ), // ! salary does not match the DataFrame height of 607
+      ( "val_most_freq", mode_value( self ) ),
       ( "min", self.min() ),
       ( "p05", quantile( self, 0.05 ) ),
       ( "p25", quantile( self, 0.25 ) ),

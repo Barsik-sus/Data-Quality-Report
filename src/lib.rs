@@ -211,13 +211,13 @@ impl DataQualityReportBuilder
   pub fn setup( mut self ) -> DataQualityReport
   {
     let num_rows = self.df.height();
-    if !self.max_rows.is_none() && num_rows > self.max_rows.unwrap()
+    if self.max_rows.is_some() && num_rows > self.max_rows.unwrap()
     {
       println!( "DataFrame has {num_rows} raws, sampling {max_rows} to reduce latency. Specify `max_rows=None` to disable.", max_rows = self.max_rows.unwrap() );
       self.df = self.df.sample_n( self.max_rows.unwrap(), false, false, None ).unwrap()
     }
 
-    let missing_by = self.missing_by.unwrap_or( "active_date".to_owned() );
+    let missing_by = self.missing_by.unwrap_or_else( || "active_date".to_owned() );
 
     log::info!( "==Rules==\n{:?}", self.rules );
     let summary_df = self.df.summarize( missing_by.to_owned() );
@@ -227,7 +227,7 @@ impl DataQualityReportBuilder
     {
       df : self.df,
       missing_by,
-      rules : self.rules.unwrap_or( FEATURE_RULES.clone() ),
+      rules : self.rules.unwrap_or_else( || FEATURE_RULES.clone() ),
       summary_df,
     }
   }
@@ -298,7 +298,7 @@ impl DataQualityReport
         msg : format!
         (
           "{msg}{fields}",
-          msg = rule.msg.to_owned().and_then( | s | Some( format!( "{s} " ) ) ).unwrap_or_default(),
+          msg = rule.msg.to_owned().map( | s | format!( "{s} " ) ).unwrap_or_default(),
           fields = fields_values.join( ", " ),
         )
       }
@@ -308,7 +308,7 @@ impl DataQualityReport
   pub fn warnings_summary_str( &self, min_dq_level : f32 ) -> String
   {
     let warns = self.warnings( min_dq_level );
-    if warns.is_empty() { return format!( "No Warnings" ) }
+    if warns.is_empty() { return "No Warnings".to_string() }
 
     let warns_counter : BTreeMap< i32, usize > = warns.iter()
     .fold( BTreeMap::new(), | mut acc, warn |
