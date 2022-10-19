@@ -98,6 +98,11 @@ impl Summary for DataFrame
       .expect( "quantile failed" )
     }
 
+    fn skew( df : &DataFrame ) -> DataFrame
+    {
+      df.clone().lazy().select([ all().skew( true )]).collect().unwrap()
+    }
+
     let data = 
     [
       ( "perc_missing", perc_missing( self ) ),
@@ -114,7 +119,7 @@ impl Summary for DataFrame
       ( "n_unique", n_unique( self ) ),
     //   ( "decimal_col", tmp( self ) ),
       // ( "perc_most_freq", perc_mode_value( self ) ), // ! filter * not allowed
-      ( "val_most_freq", mode_value( self ) ),
+      // ( "val_most_freq", mode_value( self ) ), // ! salary does not match the DataFrame height of 607
       ( "min", self.min() ),
       ( "p05", quantile( self, 0.05 ) ),
       ( "p25", quantile( self, 0.25 ) ),
@@ -124,7 +129,7 @@ impl Summary for DataFrame
       ( "mean", self.mean() ),
       ( "max", self.max() ),
     //   ( "dtype", tmp( self ) ),
-    //   ( "skew", tmp( self ) ),
+      ( "skew", skew( self ) ),
     ];
 
     let ( headers, tmp ) = data.iter()
@@ -138,34 +143,34 @@ impl Summary for DataFrame
 
     let col_names = self.get_column_names();
     let summary = concat( &tmp, true, true ).unwrap();
-    let missing_ds = if col_names.contains( &missing_by.as_str() )
-    {
-      summary.clone().groupby([ col( missing_by.as_str() ) ])
-      .agg(
-      [
-        col( &missing_by ).min().suffix( "_min" ),
-        col( &missing_by ).max().suffix( "_max" ),
-        col( &missing_by ).sum().suffix( "_sum" ),
-      ])
-    }
-    else
-    {
-      LazyFrame::default()
-    }.collect().unwrap();
-    log::info!( "==missing data set==\n{missing_ds:#?}" );
-    // if self.missing_by is not None and self.missing_by in self.df.columns:
-    //         missing_ds = self.df.groupby(self.missing_by).count() == 0
-    //     else:
-    //         missing_ds = pd.DataFrame()
-    //     missing_df_summary = pd.DataFrame(
-    //         {
-    //             "min_missing_partition": missing_ds.aggregate(lambda x: x.index[x].min()),
-    //             "max_missing_partition": missing_ds.aggregate(lambda x: x.index[x].max()),
-    //             "num_missing_partitions": missing_ds.sum(),
-    //         }
-    //     )
-
-    //     self._summary_df = pd.concat([summary_df_no_missing, missing_df_summary], axis=1)
+    // let missing_ds = if col_names.contains( &missing_by.as_str() )
+    // {
+    //   summary.clone().groupby([ col( missing_by.as_str() ) ])
+    //   .agg(
+    //   [
+    //     col( &missing_by ).min().suffix( "_min" ),
+    //     col( &missing_by ).max().suffix( "_max" ),
+    //     col( &missing_by ).sum().suffix( "_sum" ),
+    //   ])
+    // }
+    // else
+    // {
+    //   LazyFrame::default()
+    // }.collect().unwrap();
+    // log::info!( "==missing data set==\n{missing_ds:#?}" );
+    //? This is written with Python
+    //? if self.missing_by is not None and self.missing_by in self.df.columns:
+    //?          missing_ds = self.df.groupby(self.missing_by).count() == 0
+    //?      else:
+    //?          missing_ds = pd.DataFrame()
+    //?      missing_df_summary = pd.DataFrame(
+    //?          {
+    //?              "min_missing_partition": missing_ds.aggregate(lambda x: x.index[x].min()),
+    //?              "max_missing_partition": missing_ds.aggregate(lambda x: x.index[x].max()),
+    //?              "num_missing_partitions": missing_ds.sum(),
+    //?          }
+    //?      )
+    //?     self._summary_df = pd.concat([summary_df_no_missing, missing_df_summary], axis=1)
 
     let mut summary = summary
     .collect().unwrap()

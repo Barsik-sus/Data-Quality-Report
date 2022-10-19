@@ -185,7 +185,7 @@ lazy_static::lazy_static!
 pub struct DataQualityReport
 {
   df : DataFrame,
-  missing_by : String,
+  missing_by : String, // ! Don't work. Look at src/utils.rs:146
   rules : Vec< DataQualityRule >,
   summary_df : DataFrame,
 }
@@ -222,10 +222,6 @@ impl DataQualityReportBuilder
     log::info!( "==Rules==\n{:?}", self.rules );
     let summary_df = self.df.summarize( missing_by.to_owned() );
     log::info!( "==summarized df==\n{:#?}", &summary_df );
-
-    let file = std::fs::File::create( "./summarized_data.csv" ).unwrap();
-    let mut to_write = summary_df.clone();
-    CsvWriter::new( file ).finish( &mut to_write ).unwrap();
 
     DataQualityReport
     {
@@ -279,20 +275,31 @@ impl DataQualityReport
 
     log::info!( "rule : {rule:?}\ndata :\n{rows:#?}" );
 
-    rows
-    .select_at_idx( 0 ).unwrap().utf8().unwrap().into_iter()
-    .filter( | col | col.is_some() ) // ? Need to review
+    let fields = rows.select_at_idx( 0 ).unwrap().utf8().expect( "Something wrong with field names" ).into_iter();
+
+    fields
     .map( | row |
     {
+      let row = row.unwrap();
+      // collect field names into vec
+      let rule_fields = rule.fields.iter().map( | rule | col( rule ) ).collect::< Vec< _ > >();
+      // select values
+      let data_row = rows.clone().lazy()
+      .filter( col( "Fields" ).eq( lit( row ) ) )
+      .select( rule_fields ).collect().unwrap();
+      // collect fields names with values
+      let fields_values = data_row.get_row( 0 ).0
+      .iter().zip( rule.fields.iter() )
+      .map( |( value, name )| format!( "{name}: {value}" )).collect::< Vec< _ > >();
       DataQualityWarning
       {
         level : rule.level,
-        field : row.unwrap().to_owned(),
+        field : row.to_owned(),
         msg : format!
         (
           "{msg}{fields}",
           msg = rule.msg.to_owned().and_then( | s | Some( format!( "{s} " ) ) ).unwrap_or_default(),
-          fields = rule.fields.join( ", " ) // ! add values of fields
+          fields = fields_values.join( ", " ),
         )
       }
     }).collect()

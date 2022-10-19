@@ -5,9 +5,11 @@ use reqwest::blocking::Client;
 
 fn main()
 {
+  // Can be removed if no needed
   std::env::set_var( "RUST_LOG", "info" );
   pretty_env_logger::init();
 
+  // // load data set by url
   // let data = Client::new()
   // .get( "https://raw.githubusercontent.com/doordash-oss/DataQualityReport/main/tests/ds_salaries.csv" )
   // .send().unwrap()
@@ -15,6 +17,7 @@ fn main()
   // .bytes()
   // .collect::< Vec< _ > >();
 
+  // // read data to DataFrame
   // let df = CsvReader::new( Cursor::new( data ) )
   // .has_header( true )
   // .finish().unwrap()
@@ -33,9 +36,12 @@ fn main()
 
   log::info!( "Input DF\n{df}" );
 
+  // Initialize data quality report
   let dqr = DataQualityReport::new( df )
   .missing_by( "work_year" )
   .setup();
+
+  // Gets the report into String
   let rep = dqr.wartings_report_str( 3.0 );
   println!( "{}", rep );
 }
