@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use derive_builder::*;
 use polars::prelude::*;
 
 mod utils;
@@ -181,65 +182,71 @@ lazy_static::lazy_static!
 }
 
 
-#[ derive( Debug ) ]
+#[ derive( Debug, Default, Builder ) ]
+#[ builder
+(
+    custom_constructor,
+    create_empty = "empty",
+    build_fn( private, name = "fallible_build" )
+)]
 pub struct DataQualityReport
 {
+  #[ builder( setter( custom ) ) ]
   df : DataFrame,
+  #[ builder( default = "\"active_date\".to_owned()" ) ]
+  #[ builder( setter( into ) ) ]
   missing_by : String, // ! Don't work. Look at src/utils.rs:146
+  #[ builder( default = "FEATURE_RULES.clone()" ) ]
   rules : Vec< DataQualityRule >,
-  summary_df : DataFrame,
-}
-
-#[ derive( Debug, Default ) ]
-pub struct DataQualityReportBuilder
-{
-  df : DataFrame,
-  missing_by : Option< String >,
-  rules : Option< Vec< DataQualityRule > >,
+  #[ builder( setter( custom ) ) ]
+  #[ builder( default = "None" ) ]
   max_rows : Option< usize >,
+  #[ builder( setter( skip ), default = "self.summary()" ) ]
+  summary_df : DataFrame,
 }
 
 impl DataQualityReportBuilder
 {
-  pub fn new( df : DataFrame ) -> Self { Self { df, ..Default::default() } }
-  pub fn missing_by< S >( mut self, missing_by : S ) -> Self
-  where
-    S : Into< String >
-  { self.missing_by = Some( missing_by.into() ); self }
-  pub fn rules( mut self, rules : Vec< DataQualityRule > ) -> Self { self.rules = Some( rules ); self }
-  pub fn max_rows( mut self, max_rows : usize ) -> Self { self.max_rows = Some( max_rows ); self }
-  pub fn setup( mut self ) -> DataQualityReport
+  pub fn new( df : DataFrame ) -> DataQualityReportBuilder
   {
-    let num_rows = self.df.height();
-    if self.max_rows.is_some() && num_rows > self.max_rows.unwrap()
+    DataQualityReportBuilder
     {
-      println!( "DataFrame has {num_rows} raws, sampling {max_rows} to reduce latency. Specify `max_rows=None` to disable.", max_rows = self.max_rows.unwrap() );
-      self.df = self.df.sample_n( self.max_rows.unwrap(), false, false, None ).unwrap()
+      df : Some( df ),
+      ..DataQualityReportBuilder::empty()
     }
+  }
 
-    let missing_by = self.missing_by.unwrap_or_else( || "active_date".to_owned() );
-
-    log::info!( "==Rules==\n{:?}", self.rules );
-    let summary_df = self.df.summarize( missing_by.to_owned() );
-    log::info!( "==summarized df==\n{:#?}", &summary_df );
-
-    DataQualityReport
+  pub fn max_rows( &mut self, max_rows : usize ) -> Self
+  {
+    let num_rows = self.df.as_ref().unwrap().height();
+    if num_rows > max_rows
     {
-      df : self.df,
-      missing_by,
-      rules : self.rules.unwrap_or_else( || FEATURE_RULES.clone() ),
-      summary_df,
+      self.max_rows = Some( Some( max_rows ) );
+      println!
+      (
+        "DataFrame has {num_rows} raws, sampling {max_rows} to reduce latency. Specify `max_rows=None` to disable.",
+        max_rows = max_rows
+      );
+      self.df = self.df.as_ref().map( | df | df.sample_n( max_rows, false, false, None ).unwrap() );
+      log::info!( "==sampled df==\n{:#?}", &self.df );
     }
+    self.to_owned()
+  }
+
+  fn summary( &self ) -> DataFrame
+  {
+    self.df.as_ref().unwrap().summarize( self.missing_by.as_ref().unwrap().to_owned() )
+  }
+
+  pub fn build( &mut self ) -> DataQualityReport
+  {
+    self.fallible_build()
+    .expect( "Can not build DataQualityReport" )
   }
 }
 
 impl DataQualityReport
 {
-  pub fn new( df : DataFrame ) -> DataQualityReportBuilder
-  {
-    DataQualityReportBuilder::new( df )
-  }
-
   pub fn warnings( &self, min_dq_level : f32 ) -> Vec< DataQualityWarning >
   {
     self.rules.clone().iter()
@@ -331,7 +338,7 @@ impl DataQualityReport
     .trim_end_matches( ", " ).to_owned()
   }
 
-  pub fn wartings_detail_str( &self, min_dq_level : f32 ) -> String
+  pub fn warnings_detail_str( &self, min_dq_level : f32 ) -> String
   {
     let warns = self.warnings( min_dq_level );
     warns.iter()
@@ -346,13 +353,13 @@ impl DataQualityReport
     })
   }
 
-  pub fn wartings_report_str( &self, min_dq_level : f32 ) -> String
+  pub fn warnings_report_str( &self, min_dq_level : f32 ) -> String
   {
     format!
     (
       "Data Quality Report\n{}\n{}",
       self.warnings_summary_str( min_dq_level ),
-      self.wartings_detail_str( min_dq_level )
+      self.warnings_detail_str( min_dq_level )
     )
   }
 }

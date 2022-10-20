@@ -37,11 +37,11 @@ fn main()
   log::info!( "Input DF\n{df}" );
 
   // Initialize data quality report
-  let dqr = DataQualityReport::new( df )
+  let dqr = DataQualityReportBuilder::new( df )
   .missing_by( "work_year" )
-  .setup();
+  .build();
 
   // Gets the report into String
-  let rep = dqr.wartings_report_str( 3.0 );
+  let rep = dqr.warnings_report_str( 3.0 );
   println!( "{}", rep );
 }
